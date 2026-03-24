@@ -1,176 +1,154 @@
-# Stage 5 – Monitoring & Drift Detection (FastAPI + Evidently AI)
+Stage 5 – Monitoring
+Objective
 
-## Overview
+The objective of this stage is to simulate a production monitoring system that tracks model predictions, data quality, and potential drift after deployment.
 
-This stage extends the deployed machine learning model into a monitored production system. The API is enhanced to log predictions, simulate real-world traffic, and detect potential data drift using statistical analysis and Evidently AI.
+This stage ensures that the deployed model remains reliable over time by introducing observability into the pipeline.
 
----
+Overview
 
-## Objectives
+After deploying the model (Stage 4), this stage adds:
 
-* Log real-time predictions from the deployed API
-* Simulate production traffic using automated requests
-* Analyze model inputs and outputs over time
-* Detect data drift and monitor model behavior
-* Generate drift reports using Evidently AI
+Prediction logging
+Simulation of production traffic
+Monitoring of prediction distributions
+Data quality checks
+Drift detection using Evidently
 
----
+The system mimics a real-world setup where incoming data and predictions are continuously tracked and analyzed.
 
-## Project Structure
+Architecture
 
-```
-05-monitoring/
-│
-├── app.py                      # FastAPI app with logging
-├── simulate.py                 # Simulates API traffic (100+ requests)
-├── monitor.py                  # Monitoring analysis script
-├── evidently_report.py         # Drift detection using Evidently AI
-├── test_api.py                 # API testing with pytest
-├── prediction_logs.json        # Logged API predictions
-├── predictions.csv             # Simulated dataset
-├── monitoring_summary.csv      # Monitoring output
-├── monitoring_logs_flattened.csv
-└── README.md
-```
+Monitoring Workflow:
 
----
+API receives prediction requests
+Inputs and predictions are logged
+Simulation script generates production-like traffic
+Logs are processed and analyzed
+Monitoring reports and summaries are generated
+Key Components
+1. Prediction Logging
 
-## Monitoring Pipeline
+The FastAPI application is extended to log:
 
-The monitoring system consists of four main components:
+Input data
+Predictions (encoded and labeled)
+Timestamp
 
-### 1. API Logging (`app.py`)
+Logs are stored in:
 
-* FastAPI-based service
-* Logs:
+prediction_logs.json
 
-  * input features
-  * predictions
-  * timestamps
-* Stored in `prediction_logs.json`
+Each request is recorded as a structured JSON entry
 
----
+2. Traffic Simulation
 
-### 2. Simulation (`simulate.py`)
+A simulation script generates synthetic API requests to mimic production usage:
 
-* Sends ~100 requests to `/predict`
-* Generates realistic production-like data
-* Saves outputs to `predictions.csv`
+Randomized feature values
+Multiple categorical combinations
+Configurable number of requests
 
-Run:
+Command:
 
-```bash
 python simulate.py
-```
 
----
+Outputs:
 
-### 3. Monitoring Analysis (`monitor.py`)
+predictions.csv containing inputs and predictions
+3. Monitoring Pipeline
 
-Analyzes both:
+The monitoring script processes both:
 
-* API logs
-* simulated dataset
+Logged API data (prediction_logs.json)
+Simulated data (predictions.csv)
 
-Metrics computed:
+Command:
 
-* Prediction distribution
-* Missing values check
-* Feature statistics (mean, quartiles, max)
-
-Run:
-
-```bash
 python monitor.py
-```
+Monitoring Checks
+Prediction distribution
+Prediction label distribution
+Missing values detection
+Summary statistics for numerical features
 
----
+Outputs:
 
-### 4. Drift Detection (`evidently_report.py`)
+monitoring_logs_flattened.csv
+monitoring_summary.csv
+4. Data Drift Detection
 
-Evidently AI is used to detect changes between:
+Data drift is analyzed using the Evidently library.
 
-* **Reference data** (first 50 rows)
-* **Current data** (last 50 rows)
+Command:
 
-Run:
-
-```bash
 python evidently_report.py
-```
+
+Process:
+
+Split dataset into reference and current data
+Compare feature distributions
+Generate drift metrics
 
 Output:
 
-```
 drift_report.html
-```
+Monitoring Metrics
 
-Open:
+The system tracks:
 
-```bash
-open drift_report.html
-```
+Prediction Behavior
+Class distribution (encoded and labeled)
+Detection of prediction imbalance
+Data Quality
+Missing values
+Invalid inputs
+Feature Statistics
+Mean, standard deviation
+Range of numerical features
+Data Drift
+Changes in feature distributions between reference and current data
+Key Implementation Details
+Logging Design
+Each prediction request is logged with timestamp and full input
+Supports both single and batch predictions
+Enables traceability of model decisions
+Simulation Strategy
+Random sampling ensures variability
+Covers different product categories, regions, and conditions
+Approximates real-world input diversity
+Drift Analysis Approach
+First portion of data used as reference
+Remaining data treated as current production data
+Statistical comparison highlights distribution shifts
+Business Perspective
 
----
+Monitoring is critical for maintaining model reliability in production:
 
-## Evidently AI Integration
+Detects when model behavior changes
+Identifies data quality issues early
+Flags potential degradation in decision quality
 
-Evidently provides:
+Impact:
 
-* Statistical drift detection
-* Feature distribution comparisons
-* Visual reports for monitoring
+Prevents incorrect inventory decisions
+Reduces operational risk
+Supports continuous model improvement
+Limitations
+Simulation uses synthetic data, not real production traffic
+Drift detection is based on simple dataset splitting
+No automated alerting or retraining pipeline
+Stage 5 Outcome
+Prediction logging implemented
+Production traffic simulated
+Monitoring pipeline operational
+Drift detection integrated
+System provides basic observability
+Next Stage
 
-Drift is detected by comparing distributions between reference and current datasets.
+Stage 6 focuses on:
 
----
-
-## API Testing (`test_api.py`)
-
-Automated tests validate:
-
-* `/health` endpoint
-* `/predict` endpoint
-* response structure
-
-Run:
-
-```bash
-pytest test_api.py
-```
-
----
-
-## Key Results
-
-* 100+ predictions successfully simulated
-* No missing values detected in input data
-* Stable numerical feature distributions observed
-* Prediction distribution tracked across classes
-* Drift report generated using Evidently AI
-
----
-
-## Interpretation
-
-* Input features remain within expected ranges
-* No immediate signs of severe data drift
-* Prediction distribution highlights model behavior patterns
-* Monitoring pipeline provides early detection capabilities
-
----
-
-## End-to-End Flow
-
-1. Train model (`train.py`)
-2. Deploy API (`app.py`)
-3. Validate API (`test_api.py`)
-4. Simulate traffic (`simulate.py`)
-5. Monitor outputs (`monitor.py`)
-6. Detect drift (`evidently_report.py`)
-
----
-
-## Conclusion
-
-Stage 5 introduces a complete monitoring system for the deployed model. By combining logging, simulation, statistical analysis, and Evidently AI, the system enables continuous tracking of model performance and early detection of data drift, aligning with best practices in production MLOps.
+Containerization with Docker
+Code quality enforcement (flake8)
+CI/CD pipeline using GitHub Actions
+Full pipeline automation

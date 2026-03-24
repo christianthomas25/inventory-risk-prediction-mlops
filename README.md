@@ -1,258 +1,277 @@
-# Inventory Risk Predictor (IRP)
+# Inventory Risk Prediction – End-to-End MLOps Pipeline
 
-**MLOps Group Project — Section 1, Group 5**
-Maria-Irina Popa · Enzo Jerez · Roberto Cummings · Jia Yi Rachel Lee · Thomas Christian Matenco
+## Objective
 
-An end-to-end ML system that predicts **inventory risk** (Stockout Risk, Overstock Risk, Safe Zone) one day in advance for retail operations. Built with XGBoost, FastAPI, MLflow, Docker, and CI/CD automation.
+This project builds a complete end-to-end MLOps pipeline to predict inventory risk levels for retail products. The system is designed to simulate a production-ready machine learning workflow, from data processing to deployment, monitoring, and automation.
 
----
+The goal is to support better inventory decisions by classifying products into:
 
-## Business Problem
-
-Retail stockouts create lost-sales risk and service-level problems. Inventory planners need early warning to decide where to focus attention among hundreds of store-product combinations. This system provides a daily risk score for every product in every store, enabling proactive reordering, stock transfers, and markdown decisions.
-
-**Key design principle:** Missing a real stockout is 5–10× more costly than generating an extra alert. The system is tuned for **high recall on Stockout Risk**.
+- Low Risk  
+- Medium Risk  
+- High Risk  
 
 ---
 
-## Architecture
+## Project Overview
 
-```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│   Raw CSV    │────▶│   train.py   │────▶│   MLflow     │     │  FastAPI     │
-│   Dataset    │     │  (pipeline)  │     │  (tracking)  │     │  (app.py)    │
-└──────────────┘     └──────┬───────┘     └──────────────┘     └──────┬───────┘
-                            │                                         │
-                            ▼                                         ▼
-                     ┌──────────────┐                          ┌──────────────┐
-                     │ models/      │─────────────────────────▶│  /predict    │
-                     │ model.joblib │                          │  /health     │
-                     └──────────────┘                          └──────────────┘
-                                                                      │
-                                                               ┌──────┴───────┐
-                                                               │   Docker     │
-                                                               │   Render     │
-                                                               └──────────────┘
-```
+The pipeline follows a structured multi-stage approach:
+
+1. Feature Engineering & Data Understanding  
+2. Modeling & Experiment Tracking  
+3. Deployment (API)  
+4. Monitoring  
+5. Automation & CI/CD  
+
+Each stage reflects a real-world ML lifecycle component.
 
 ---
 
-## Quick Start
+## Problem Definition
 
-### 1. Clone and install
+The task is a **multiclass classification problem**:
 
-```bash
-git clone https://github.com/christianthomas25/inventory-risk-prediction-mlops.git
-cd inventory-risk-prediction-mlops
-pip install -r requirements.txt
-```
+- Input: Daily inventory and sales features  
+- Output: Risk level for future inventory imbalance  
 
-### 2. Add the dataset
+Business objective:
 
-Place `retail_store_inventory.csv` in the `data/` folder.
+- Reduce stockouts  
+- Avoid overstocking  
+- Improve operational efficiency  
 
-### 3. Train the model
+---
 
+## Pipeline Architecture
+
+**End-to-End Flow:**
+
+1. Raw data → feature engineering  
+2. Feature set → model training (MLflow)  
+3. Best model → API deployment (FastAPI)  
+4. API → real-time predictions  
+5. Predictions → logging and monitoring  
+6. System → containerized and automated  
+
+---
+
+## Stage 2 – Feature Engineering & Data Understanding
+
+### Key Contributions
+
+- Creation of domain-specific features:
+  - Inventory dynamics (e.g., Days_of_Stock)  
+  - Demand behavior (Sales_Velocity)  
+  - Forecast reliability (Forecast_Error)  
+
+- Target label defined using threshold-based rules  
+
+- Three business scenarios:
+  - Conservative  
+  - Balanced  
+  - Sensitive  
+
+### Sensitivity Analysis
+
+- Evaluates how thresholds impact class distribution  
+- Demonstrates that label design depends on business trade-offs  
+
+Important distinction:
+
+- This is **analysis**, not model tuning  
+
+---
+
+## Stage 3 – Modeling & MLflow
+
+### Models Trained
+
+- Logistic Regression  
+- Random Forest  
+- XGBoost  
+
+### Evaluation Metrics
+
+- Accuracy  
+- Precision (macro)  
+- Recall (macro)  
+- F1-score (macro)  
+
+### MLflow Usage
+
+- Experiment tracking  
+- Model comparison  
+- Artifact storage  
+
+### Outputs
+
+- `run_id.txt`  
+- `best_model_uri.txt`  
+- `results_df.csv`  
+
+### Outcome
+
+- Best model selected based on validation performance  
+- Fully reproducible training pipeline  
+
+---
+
+## Stage 4 – Deployment (FastAPI)
+
+### API Features
+
+- REST API for real-time predictions  
+- Input validation using Pydantic  
+- Support for batch and single predictions  
+
+### Endpoints
+
+- `/` → API info  
+- `/health` → system status  
+- `/predict` → model inference  
+
+### Model Loading Strategy
+
+- Packaged model (portable)  
+- MLflow URI fallback  
+
+### Key Achievement
+
+- Model successfully exposed as a production-like service  
+
+---
+
+## Stage 5 – Monitoring
+
+### Monitoring Capabilities
+
+- Prediction logging (inputs + outputs + timestamp)  
+- Simulation of production traffic  
+- Data quality checks  
+- Prediction distribution tracking  
+- Data drift detection (Evidently)  
+
+### Outputs
+
+- `prediction_logs.json`  
+- `monitoring_summary.csv`  
+- `drift_report.html`  
+
+### Purpose
+
+- Ensure model reliability post-deployment  
+- Detect anomalies and distribution shifts  
+
+---
+
+## Stage 6 – Automation & CI/CD
+
+### Containerization
+
+- Docker used to package the API  
+- Ensures environment consistency and portability  
+
+### CI/CD Pipeline
+
+Implemented with GitHub Actions:
+
+- Install dependencies  
+- Run linting checks (flake8)  
+
+### Code Quality
+
+- `.flake8` configuration applied  
+- Non-critical warnings ignored  
+
+### Key Challenge Solved
+
+- MLflow artifact paths are not portable  
+- Resolved using `packaged_model/`  
+
+---
+
+## Technical Stack
+
+### Core Libraries
+
+- Python  
+- pandas, numpy  
+- scikit-learn  
+- XGBoost  
+
+### MLOps Tools
+
+- MLflow (experiment tracking)  
+- FastAPI (deployment)  
+- Docker (containerization)  
+- GitHub Actions (CI/CD)  
+- Evidently (monitoring)  
+
+---
+
+## How to Run the Project
+
+### 1. Train Models
 ```bash
 python train.py
 ```
 
-This will:
-- Run the full data pipeline (reconstruction, feature engineering, labelling)
-- Train an XGBoost classifier with SMOTE
-- Log parameters, metrics, and artifacts to MLflow
-- Save the model to `models/model.joblib`
 
-### 4. Start the API
+### 2. Run API
+uvicorn app:app --reload --port 8000
+### 3. Simulate Traffic
+python simulate.py
+### 4. Run Monitoring
+python monitor.py
+python evidently_report.py
+### 5. Run with Docker
+docker build -f 06-cicd/Dockerfile -t inventory-api .
+docker run -p 8000:8000 inventory-api
+Key Design Decisions
 
-```bash
-uvicorn app:app --host 0.0.0.0 --port 8000
-```
+#### 1. Label Engineering vs Model Optimization
+Labels defined in Stage 2
+Model training performed in Stage 3
 
-Open [http://localhost:8000/docs](http://localhost:8000/docs) for the interactive API.
+This separation ensures:
 
-### 5. Make a prediction
+Clear reasoning
+Avoidance of data leakage
+#### 2. Scenario-Based Thinking
+Multiple labeling strategies simulate business priorities
+“Best” model depends on operational cost, not just metrics
+#### 3. Portability First
+Use of packaged_model/ instead of raw MLflow artifacts
+Ensures compatibility in Docker environments
+#### 4. Observability
+Logging and monitoring integrated after deployment
+Reflects real-world production requirements
+Business Impact
 
-```bash
-curl -X POST http://localhost:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{
-    "inventory_reconstructed": 18.0,
-    "units_sold": 127,
-    "demand_forecast": 135.47,
-    "price": 33.50,
-    "discount": 20,
-    "competitor_pricing": 29.69,
-    "holiday_promotion": 0,
-    "inventory_change": -72.0,
-    "inventory_change_pct": -0.80,
-    "days_of_stock": 0.14,
-    "inventory_vs_rolling7": -33.5,
-    "sales_velocity": 0.92,
-    "inventory_lag1": 90.0,
-    "units_sold_lag1": 115.0,
-    "rolling7_inventory": 51.5,
-    "coverage_ratio": 0.13,
-    "forecast_error": -8.47,
-    "order_to_inventory": 3.06,
-    "category": "Groceries",
-    "region": "North",
-    "weather_condition": "Rainy",
-    "seasonality": "Autumn"
-  }'
-```
+The system enables:
 
-**Response:**
-```json
-{
-  "risk_label": "Stockout Risk",
-  "confidence": 0.9731,
-  "probabilities": {
-    "Overstock Risk": 0.0082,
-    "Safe Zone": 0.0187,
-    "Stockout Risk": 0.9731
-  }
-}
-```
+Real-time inventory risk assessment
+Better stock management decisions
+Reduced operational inefficiencies
 
----
+Strategic value:
 
-## Project Structure
+Supports scalable, data-driven decision-making
+Bridges the gap between ML models and business operations
+Limitations
+Dataset is synthetic → may inflate performance
+Labels are heuristic-based, not ground truth
+Monitoring is simulated, not real-time production
+Final Outcome
 
-```
-inventory-risk-prediction-mlops/
-├── config.yaml            # Single source of truth for all parameters
-├── train.py               # Model training with MLflow tracking
-├── app.py                 # FastAPI serving endpoint
-├── Dockerfile             # Containerized service
-├── render.yaml            # Render.com deployment manifest
-├── requirements.txt       # Python dependencies
-├── .github/
-│   └── workflows/
-│       └── ci-cd.yml      # Lint → Test → Build → Deploy
-├── src/
-│   ├── __init__.py
-│   ├── pipeline.py        # Data loading, reconstruction, feature engineering
-│   └── schemas.py         # Pydantic request/response models
-├── tests/
-│   ├── test_pipeline.py   # Unit tests for data pipeline
-│   └── test_app.py        # Unit tests for API endpoints
-├── models/                # Saved serving artifacts (model + encoders)
-├── data/                  # Dataset (git-ignored)
-└── notebooks/             # Exploratory notebooks (Stages 1–3)
-```
+### The project delivers a complete MLOps pipeline that is:
 
----
-
-## Configuration
-
-All parameters are centralized in `config.yaml`:
-
-| Section | Key parameters |
-|---------|---------------|
-| `labels` | `theta_low` (stockout threshold), `theta_high` (overstock threshold), `sales_velocity` |
-| `split` | `cutoff_val`, `cutoff_test` (temporal split dates) |
-| `model.xgboost` | `n_estimators`, `max_depth`, `learning_rate`, etc. |
-| `serving` | `host`, `port`, `model_path` |
-
----
-
-## API Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/` | Redirects to interactive docs |
-| `GET` | `/health` | Service and model status |
-| `POST` | `/predict` | Predict inventory risk for one store-product snapshot |
-| `GET` | `/docs` | Swagger UI (auto-generated) |
-
----
-
-## MLflow Experiment Tracking
-
-After training, view experiment history:
-
-```bash
-mlflow ui --backend-store-uri sqlite:///mlflow.db
-```
-
-Open [http://localhost:5000](http://localhost:5000) to compare runs, metrics, and artifacts.
-
----
-
-## Docker
-
-```bash
-# Build
-docker build -t irp .
-
-# Run
-docker run -p 8000:8000 irp
-
-# Test
-curl http://localhost:8000/health
-```
-
----
-
-## CI/CD Pipeline
-
-The GitHub Actions workflow (`.github/workflows/ci-cd.yml`) runs on every push to `main`:
-
-1. **Lint** — flake8 on all Python files
-2. **Test** — pytest on `tests/`
-3. **Build** — Docker image build
-4. **Deploy** — Trigger Render.com deployment (main branch only)
-
----
-
-## Testing
-
-```bash
-pytest tests/ -v
-```
-
-Tests cover:
-- Inventory reconstruction logic (depletion, floor at zero)
-- Feature engineering (column creation, NaN handling)
-- Label application (three-class logic, precedence rules)
-- Temporal splitting (no overlap, all rows accounted)
-- API endpoints (health, predict, validation, error handling)
-
----
-
-## Label Definitions
-
-Labels are **business-rule proxies** applied to reconstructed inventory:
-
-| Label | Condition | Business meaning |
-|-------|-----------|-----------------|
-| **Stockout Risk** | `Inventory < Demand × 1.0` | Stock insufficient to cover 1 day of forecast demand |
-| **Overstock Risk** | `Inventory > Demand × 1.5` AND `Sales < Demand × 0.5` | Excess stock with low sales velocity |
-| **Safe Zone** | Neither condition | Healthy inventory balance |
-
-Labels are shifted by t+1: the model predicts **tomorrow's** risk from **today's** features.
-
----
-
-## Known Limitations
-
-1. **Proxy labels** — derived from threshold rules, not observed stockout events.
-2. **Feature-label circularity** — engineered features overlap with label construction variables; the t+1 shift partially mitigates this.
-3. **Overstock instability** — only 2.6% of data, with 4% day-to-day persistence; model performance on this class is limited.
-4. **Synthetic dataset** — findings may not generalize to real retail operations.
-
----
-
-## Future Work
-
-- Validate against actual stockout events (zero-on-hand, lost sales logs)
-- Multi-day forecast horizon (3–7 days) for more lead time
-- Evidently AI drift monitoring in production
-- Regression alternative (predict inventory level, derive risk post-hoc)
-
----
-
-## License
-
-Academic project — IE University, MBDS 2026.
+Reproducible
+Modular
+Deployable
+Monitorable
+Production-ready (academic level)
+Future Improvements
+Real-time streaming data integration
+Automated retraining pipeline
+Alerting system for drift detection
+Use of real-world retail datasets

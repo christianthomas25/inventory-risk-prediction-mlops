@@ -30,6 +30,10 @@ DEFAULT_RUN_ID_FILE = os.getenv(
 )
 MODEL_URI = os.getenv("MODEL_URI")
 
+LOCAL_MODEL_DIR = os.getenv(
+    "LOCAL_MODEL_DIR",
+    os.path.join(BASE_DIR, "packaged_model")
+)
 FEATURE_COLUMNS = [
     "Inventory Level",
     "Units Sold",
@@ -127,6 +131,9 @@ LABELS = load_labels()
 
 
 def resolve_model_uri() -> str:
+    if os.path.exists(os.path.join(LOCAL_MODEL_DIR, "MLmodel")):
+        return LOCAL_MODEL_DIR
+
     if MODEL_URI:
         return MODEL_URI
 
@@ -143,8 +150,7 @@ def resolve_model_uri() -> str:
             return f"runs:/{run_id}/model"
 
     raise FileNotFoundError(
-        "No model URI found. Set MODEL_URI env var or place best_model_uri.txt "
-        "or run_id.txt next to app.py."
+        "No model URI found. Provide packaged_model, MODEL_URI, best_model_uri.txt, or run_id.txt."
     )
 
 

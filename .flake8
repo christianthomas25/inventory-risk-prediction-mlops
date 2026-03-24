@@ -1,0 +1,4 @@
+[flake8]
+max-line-length = 120
+ignore = E501, W503, W292, W293, W391, E303, E226
+exclude = .git,__pycache__,venv,.venv,mlruns,streamlit_app,tests

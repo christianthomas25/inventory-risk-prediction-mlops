@@ -1,143 +1,65 @@
-# Stage 4 – Model Deployment (FastAPI)
+Stage 4 – Model Deployment (FastAPI)
+Objective
 
-## Overview
+The objective of this stage is to deploy the trained inventory risk prediction model as a REST API using FastAPI. This enables real-time inference and simulates how the model would be used in a production environment.
 
-In this stage, the selected machine learning model is deployed as a production-ready API using **FastAPI**. The deployment includes model training, experiment tracking with MLflow, API serving, and automated endpoint testing.
+Overview
 
----
+In this stage, the best-performing model from Stage 3 (tracked via MLflow) is:
 
-## Objectives
+Loaded dynamically
+Integrated into a FastAPI application
+Exposed through HTTP endpoints for prediction and system health monitoring
 
-* Train and select the best model from Stage 3
-* Log models and metrics using MLflow
-* Deploy the model via a REST API
-* Enable real-time predictions
-* Validate API functionality using automated tests
+The API supports:
 
----
+Single and batch predictions
+Input validation
+Error handling
+Architecture
 
-## Project Structure
+Workflow:
 
-```
-04-deployment/
-│
-├── train.py                # Model training and MLflow logging
-├── app.py                  # FastAPI application
-├── test_api.py             # API testing using pytest
-├── run_id.txt              # Best MLflow run ID
-├── best_model_uri.txt      # Model URI for deployment
-├── label_classes.json      # Class labels
-├── results_df.csv          # Model comparison results
-└── README.md               # Documentation
-```
+Load model (MLflow or packaged model)
+Receive request via /predict
+Validate input using Pydantic
+Transform input into model-compatible format
+Generate predictions
+Return encoded and human-readable outputs
+Key Files
+app.py – FastAPI application and model loading logic
+test_api.py – API testing for health and prediction endpoints
+run_id.txt – Stores MLflow run ID of the best model
+best_model_uri.txt – Stores model URI
+packaged_model/ – Portable model used for deployment
+Running the API
+1. Install dependencies
+pip install -r requirements.txt
+2. Start the API
+uvicorn app:app --reload --port 8000
+API Endpoints
+Root Endpoint
+GET /
 
----
+Returns API metadata and required input features.
 
-## Model Training (`train.py`)
-
-### Description
-
-* Loads processed datasets (train, validation, test)
-* Applies preprocessing pipelines:
-
-  * StandardScaler (numerical)
-  * OneHotEncoder (categorical)
-* Handles class imbalance:
-
-  * SMOTE / SMOTENC
-* Trains:
-
-  * Logistic Regression
-  * Random Forest
-  * XGBoost
-
-### Evaluation Metrics
-
-* Accuracy
-* Precision (macro)
-* Recall (macro)
-* F1-score (macro)
-
-### Model Selection
-
-Models are ranked based on:
-
-1. Validation F1-score
-2. Validation Recall
-3. Validation Precision
-4. Validation Accuracy
-
----
-
-## MLflow Integration
-
-MLflow is used to:
-
-* Track experiments
-* Log parameters and metrics
-* Store trained models
-* Enable reproducibility
-
-### Start MLflow
-
-```bash
-mlflow server \
---backend-store-uri sqlite:///mlflow.db \
---default-artifact-root ./mlruns \
---host 127.0.0.1 \
---port 5001
-```
-
-Access UI:
-
-```
-http://127.0.0.1:5001
-```
-
----
-
-## API Deployment (`app.py`)
-
-### Description
-
-* Built using **FastAPI**
-* Loads the best model from MLflow
-* Performs input validation using Pydantic
-* Returns predictions in structured JSON format
-
----
-
-## Endpoints
-
-### 1. Health Check
-
-```
+Health Check
 GET /health
-```
 
 Response:
 
-```json
-{"status": "ok"}
-```
-
----
-
-### 2. Prediction Endpoint
-
-```
+{
+  "status": "ok"
+}
+Prediction Endpoint
 POST /predict
-```
-
-### Example Request
-
-```json
+Example Input
 {
   "Inventory_Level": 120,
   "Units_Sold": 35,
   "Units_Ordered": 40,
   "Price": 19.99,
-  "Discount": 0.10,
+  "Discount": 0,
   "Units_Sold_Lag1": 30,
   "Inventory_Change_Pct": 0.08,
   "Days_of_Stock": 12,
@@ -150,78 +72,87 @@ POST /predict
   "Weather_Condition": "Sunny",
   "Seasonality": "Summer"
 }
-```
-
-### Example Response
-
-```json
+Example Output
 {
-  "predictions_encoded": [2],
-  "predictions_label": ["Stockout Risk"]
+  "predictions_encoded": [1],
+  "predictions_label": ["Medium Risk"]
 }
-```
+Input Validation
 
----
+Input validation is handled using a Pydantic schema:
 
-## API Testing (`test_api.py`)
+Ensures correct data types
+Converts API field names to model feature names
+Detects missing or invalid features
 
-### Description
+Feature types:
 
-Automated tests are implemented using **pytest** to validate API functionality.
+Integers: inventory, units sold, discount
+Floats: price, ratios, derived metrics
+Categorical: category, region, weather, seasonality
+Model Loading Strategy
 
-### Tests Included
+The application supports multiple model loading options, in the following priority:
 
-* Health endpoint availability
-* Prediction endpoint response structure
-* Basic sanity checks on outputs
+packaged_model/ (preferred for portability)
+MODEL_URI environment variable
+best_model_uri.txt
+run_id.txt
 
-### Run Tests
+This design ensures flexibility during development and portability in containerized environments.
 
-```bash
-pip install pytest requests
+Testing
+
+Run tests using:
+
 pytest test_api.py
-```
 
-### Expected Output
+Test coverage includes:
 
-```
-2 passed in X.XXs
-```
+/health endpoint returns correct status
+/predict endpoint returns valid structure and predictions
+Key Implementation Details
+Feature Name Mapping
 
----
+API input format:
 
-## How to Run
+Inventory_Level
 
-### 1. Train Model
+Model training format:
 
-```bash
-python train.py
-```
+Inventory Level
 
-### 2. Start API
+This mismatch is handled through a transformation layer in the input schema.
 
-```bash
-uvicorn app:app --host 0.0.0.0 --port 5001 --reload
-```
+Data Type Consistency
 
-### 3. Run Tests
+The system enforces strict data typing:
 
-```bash
-pytest test_api.py
-```
+Numerical values are cast to appropriate types
+Invalid or missing values trigger explicit errors
+Label Decoding
 
----
+Model outputs numerical classes which are mapped to:
 
-## Key Features
+Low Risk
+Medium Risk
+High Risk
+Business Perspective
 
-* End-to-end ML pipeline from training to deployment
-* MLflow experiment tracking
-* FastAPI-based scalable deployment
-* Input validation with Pydantic
-* Automated API testing using pytest
+This stage converts the trained model into a usable decision system:
 
----
+Enables real-time inventory risk assessment
+Can be integrated into operational systems such as dashboards or ERP platforms
+Supports automated decision-making processes
 
-## Conclusion
+Impact:
 
-This stage successfully transforms a trained model into a deployable and testable microservice. The use of FastAPI and automated testing ensures robustness, scalability, and readiness for real-world deployment scenarios.
+Improved inventory control
+Reduced stockouts and overstocking
+Scalable prediction service
+Stage 4 Outcome
+Model successfully deployed as a REST API
+Endpoints implemented and tested
+Input validation and error handling in place
+Portable model loading strategy established
+System ready for monitoring in Stage 5

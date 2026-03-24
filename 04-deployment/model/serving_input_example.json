@@ -1,0 +1,42 @@
+{
+  "dataframe_split": {
+    "columns": [
+      "Inventory Level",
+      "Units Sold",
+      "Units Ordered",
+      "Price",
+      "Discount",
+      "Units_Sold_Lag1",
+      "Inventory_Change_Pct",
+      "Days_of_Stock",
+      "Sales_Velocity",
+      "Coverage_Ratio",
+      "Forecast_Error",
+      "Order_to_Inventory",
+      "Category",
+      "Region",
+      "Weather Condition",
+      "Seasonality"
+    ],
+    "data": [
+      [
+        231,
+        2,
+        119,
+        66.3,
+        20,
+        107.0,
+        -0.0019646365422396855,
+        254.0,
+        0.003937007874015748,
+        508.0,
+        1.1600000000000001,
+        0.234251968503937,
+        "Furniture",
+        "East",
+        "Cloudy",
+        "Winter"
+      ]
+    ]
+  }
+}
