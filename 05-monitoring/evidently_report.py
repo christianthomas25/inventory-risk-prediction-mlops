@@ -4,16 +4,18 @@ import pandas as pd
 from evidently import Report
 from evidently.presets import DataDriftPreset
 
-df = pd.read_csv("predictions.csv")
+df = pd.read_csv("data/predictions.csv")
 
-reference = df.iloc[:50]
-current = df.iloc[50:]
+mid = len(df) // 2
+reference_data = df.iloc[:mid].copy()
+current_data = df.iloc[mid:].copy()
 
 report = Report([
-    DataDriftPreset(),
+    DataDriftPreset()
 ])
 
-my_eval = report.run(current_data=current, reference_data=reference)
-my_eval.save_html("drift_report.html")
+my_eval = report.run(current_data=current_data, reference_data=reference_data)
 
-print("Drift report saved as drift_report.html")
+my_eval.save_html("evidently_report.html")
+
+print("Evidently report generated: evidently_report.html")

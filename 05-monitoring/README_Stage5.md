@@ -1,154 +1,161 @@
-Stage 5 – Monitoring
-Objective
+# Stage 5: Monitoring & Drift Detection
 
-The objective of this stage is to simulate a production monitoring system that tracks model predictions, data quality, and potential drift after deployment.
+## 📌 Overview
 
-This stage ensures that the deployed model remains reliable over time by introducing observability into the pipeline.
+In this stage, we extend our deployed ML API by adding monitoring capabilities.
+We simulate real-world predictions, log outputs, and analyze potential data drift and model performance using both custom scripts and Evidently AI.
 
-Overview
+---
 
-After deploying the model (Stage 4), this stage adds:
+## ⚙️ Pipeline Flow
 
-Prediction logging
-Simulation of production traffic
-Monitoring of prediction distributions
-Data quality checks
-Drift detection using Evidently
+The monitoring pipeline follows this structure:
 
-The system mimics a real-world setup where incoming data and predictions are continuously tracked and analyzed.
+```
+FastAPI (app.py)
+        ↓
+simulate.py → generates predictions
+        ↓
+data/predictions.csv
+        ↓
+monitor.py → basic summary report
+        ↓
+evidently_report.py → advanced drift analysis
+```
 
-Architecture
+---
 
-Monitoring Workflow:
+## 📁 Project Structure
 
-API receives prediction requests
-Inputs and predictions are logged
-Simulation script generates production-like traffic
-Logs are processed and analyzed
-Monitoring reports and summaries are generated
-Key Components
-1. Prediction Logging
+```
+05-monitoring/
+│
+├── app.py                  # FastAPI service (same as Stage 4)
+├── simulate.py             # Simulates API calls
+├── monitor.py              # Basic monitoring summary
+├── evidently_report.py     # Drift detection with Evidently
+├── test_api.py             # API tests
+│
+├── data/
+│   └── predictions.csv     # Simulated predictions
+│
+├── monitoring_report.html  # Basic report
+├── evidently_report.html   # Drift dashboard
+│
+├── run_id.txt
+├── best_model_uri.txt
+├── label_classes.json
+├── requirements.txt
+└── README_Stage5.md
+```
 
-The FastAPI application is extended to log:
+---
 
-Input data
-Predictions (encoded and labeled)
-Timestamp
+## 🚀 How to Run
 
-Logs are stored in:
+### 1. Start API
 
-prediction_logs.json
+```bash
+uvicorn app:app --reload --port 5001
+```
 
-Each request is recorded as a structured JSON entry
+### 2. Test API
 
-2. Traffic Simulation
+```bash
+pytest test_api.py
+```
 
-A simulation script generates synthetic API requests to mimic production usage:
+### 3. Simulate Predictions
 
-Randomized feature values
-Multiple categorical combinations
-Configurable number of requests
-
-Command:
-
+```bash
 python simulate.py
+```
 
-Outputs:
+This generates:
 
-predictions.csv containing inputs and predictions
-3. Monitoring Pipeline
+```
+data/predictions.csv
+```
 
-The monitoring script processes both:
+---
 
-Logged API data (prediction_logs.json)
-Simulated data (predictions.csv)
+### 4. Run Basic Monitoring
 
-Command:
-
+```bash
 python monitor.py
-Monitoring Checks
-Prediction distribution
-Prediction label distribution
-Missing values detection
-Summary statistics for numerical features
+```
 
-Outputs:
+Generates:
 
-monitoring_logs_flattened.csv
-monitoring_summary.csv
-4. Data Drift Detection
+```
+monitoring_report.html
+```
 
-Data drift is analyzed using the Evidently library.
+---
 
-Command:
+### 5. Run Evidently Report
 
+```bash
 python evidently_report.py
+```
 
-Process:
+Generates:
 
-Split dataset into reference and current data
-Compare feature distributions
-Generate drift metrics
+```
+evidently_report.html
+```
 
-Output:
+---
 
-drift_report.html
-Monitoring Metrics
+## 📊 Monitoring Outputs
 
-The system tracks:
+### 🔹 Basic Monitoring (`monitor.py`)
 
-Prediction Behavior
-Class distribution (encoded and labeled)
-Detection of prediction imbalance
-Data Quality
-Missing values
-Invalid inputs
-Feature Statistics
-Mean, standard deviation
-Range of numerical features
-Data Drift
-Changes in feature distributions between reference and current data
-Key Implementation Details
-Logging Design
-Each prediction request is logged with timestamp and full input
-Supports both single and batch predictions
-Enables traceability of model decisions
-Simulation Strategy
-Random sampling ensures variability
-Covers different product categories, regions, and conditions
-Approximates real-world input diversity
-Drift Analysis Approach
-First portion of data used as reference
-Remaining data treated as current production data
-Statistical comparison highlights distribution shifts
-Business Perspective
+* Prediction distribution
+* Label distribution
+* Missing values
+* Numerical feature summary
 
-Monitoring is critical for maintaining model reliability in production:
+---
 
-Detects when model behavior changes
-Identifies data quality issues early
-Flags potential degradation in decision quality
+### 🔹 Advanced Monitoring (Evidently)
 
-Impact:
+* Data drift detection
+* Feature distribution comparison
+* Reference vs current data analysis
 
-Prevents incorrect inventory decisions
-Reduces operational risk
-Supports continuous model improvement
-Limitations
-Simulation uses synthetic data, not real production traffic
-Drift detection is based on simple dataset splitting
-No automated alerting or retraining pipeline
-Stage 5 Outcome
-Prediction logging implemented
-Production traffic simulated
-Monitoring pipeline operational
-Drift detection integrated
-System provides basic observability
-Next Stage
+---
 
-Stage 6 focuses on:
+## 🧠 Key Concepts
 
-Containerization with Docker
-Code quality enforcement (flake8)
-CI/CD pipeline using GitHub Actions
-Full pipeline automation
+* **Simulation**: Mimics real-time API usage
+* **Monitoring**: Tracks model behavior post-deployment
+* **Data Drift**: Detects changes in input data distribution
+* **Reference vs Current Split**: First half vs second half of data
+
+---
+
+## ⚠️ Notes
+
+* API must be running before executing `simulate.py`
+* Predictions are stored in `data/predictions.csv`
+* Evidently compares earlier vs later predictions to detect drift
+
+---
+
+## ✅ Stage 5 Completion
+
+This stage is complete when:
+
+* API is functional
+* Simulation generates predictions
+* Monitoring reports are created
+* Evidently report visualizes drift
+
+---
+
+## 🔜 Next Step
+
+Proceed to **Stage 6: Automation & CI/CD**, where the full pipeline will be automated and deployed.
+
+---
