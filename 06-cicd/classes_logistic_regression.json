@@ -5,7 +5,7 @@
     "Stockout Risk"
   ],
   "feature_columns": [
-    "Inventory Level",
+    "Inventory_Reconstructed",
     "Units Sold",
     "Units Ordered",
     "Price",

@@ -4,10 +4,11 @@
 # and train the chosen model
 # and evaluate it
 # and log to MLflow
-# and save the run_id and run_id.txt
+# and save the best model for deployment
 
 import os
 import json
+import pickle
 import datetime
 import warnings
 import numpy as np
@@ -267,6 +268,7 @@ def main():
     models, sample_weights = build_models(X_train, y_train)
 
     results = []
+    trained_models = {}
     class_names = list(le.classes_)
 
     for model_name, model in models:
@@ -287,6 +289,8 @@ def main():
                 model.fit(X_train, y_train, model__sample_weight=sample_weights)
             else:
                 model.fit(X_train, y_train)
+
+            trained_models[model_name] = model
 
             split_data = {
                 "train": (X_train, y_train),
@@ -347,6 +351,8 @@ def main():
     best_run_id = best_run["run_id"]
     best_model_uri = f"runs:/{best_run_id}/model"
 
+    best_model = trained_models[best_model_name]
+
     with open(os.path.join(OUTPUT_DIR, "run_id.txt"), "w", encoding="utf-8") as f:
         f.write(best_run_id)
 
@@ -356,9 +362,19 @@ def main():
     with open(os.path.join(OUTPUT_DIR, "label_classes.json"), "w", encoding="utf-8") as f:
         json.dump({"class_names": class_names}, f, indent=2)
 
+    models_dir = os.path.join(BASE_DIR, "models")
+    os.makedirs(models_dir, exist_ok=True)
+
+    with open(os.path.join(models_dir, "model.pkl"), "wb") as f:
+        pickle.dump(best_model, f)
+
+    with open(os.path.join(models_dir, "label_classes.json"), "w", encoding="utf-8") as f:
+        json.dump({"class_names": class_names}, f, indent=2)
+
     print("\nBest model:", best_model_name)
     print("Best run_id:", best_run_id)
     print("Best model URI:", best_model_uri)
+    print("Saved deployment artifacts to models/")
     print("\nResults summary:")
     print(results_df)
 

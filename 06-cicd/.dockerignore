@@ -1,0 +1,9 @@
+mlflow.db
+mlruns/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+data/
+monitoring_report.html
+evidently_report.html

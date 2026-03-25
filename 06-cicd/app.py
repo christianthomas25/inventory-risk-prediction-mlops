@@ -1,39 +1,21 @@
 # app.py
-# The purpose of this file is to read best_model_uri.txt / run_id.txt
-# and load the trained model from MLflow
-# and define FastAPI app
-# and define input schema
-# and expose /, /health, /predict
+# Stage 6 deployment version:
+# load local model artifacts only (no MLflow)
+# define FastAPI app
+# expose /, /health, /predict
 
 import os
 import json
+import pickle
 from typing import List, Union
 
-import mlflow
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-MLFLOW_TRACKING_URI = os.getenv(
-    "MLFLOW_TRACKING_URI",
-    f"sqlite:///{os.path.join(BASE_DIR, 'mlflow.db')}",
-)
-DEFAULT_MODEL_URI_FILE = os.getenv(
-    "MODEL_URI_FILE",
-    os.path.join(BASE_DIR, "best_model_uri.txt"),
-)
-DEFAULT_RUN_ID_FILE = os.getenv(
-    "RUN_ID_FILE",
-    os.path.join(BASE_DIR, "run_id.txt"),
-)
-MODEL_URI = os.getenv("MODEL_URI")
-
-LOCAL_MODEL_DIR = os.getenv(
-    "LOCAL_MODEL_DIR",
-    os.path.join(BASE_DIR, "packaged_model"),
-)
+MODEL_PATH = os.path.join(BASE_DIR, "models", "model.pkl")
+LABEL_PATH = os.path.join(BASE_DIR, "models", "label_classes.json")
 
 FEATURE_COLUMNS = [
     "Inventory_Reconstructed",
@@ -97,7 +79,7 @@ class PredictionInput(BaseModel):
     Region: str
     Weather_Condition: str
     Seasonality: str
-    
+
     def to_model_dict(self) -> dict:
         return {
             "Inventory_Reconstructed": self.Inventory_Reconstructed,
@@ -120,48 +102,27 @@ class PredictionInput(BaseModel):
 
 
 def load_labels() -> List[str]:
-    label_path = os.path.join(BASE_DIR, "label_classes.json")
-    if os.path.exists(label_path):
-        with open(label_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return data.get("class_names", [])
-    return ["High Risk", "Low Risk", "Medium Risk"]
+    if not os.path.exists(LABEL_PATH):
+        raise FileNotFoundError(f"label_classes.json not found at {LABEL_PATH}")
+
+    with open(LABEL_PATH, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    if isinstance(data, dict) and "class_names" in data:
+        return data["class_names"]
+
+    if isinstance(data, list):
+        return data
+
+    raise ValueError("label_classes.json format is invalid.")
 
 
-def load_run_id() -> str:
-    if os.path.exists(DEFAULT_RUN_ID_FILE):
-        with open(DEFAULT_RUN_ID_FILE, "r", encoding="utf-8") as f:
-            return f.read().strip()
-    return "unknown"
+def load_model():
+    if not os.path.exists(MODEL_PATH):
+        raise FileNotFoundError(f"model.pkl not found at {MODEL_PATH}")
 
-
-LABELS = load_labels()
-RUN_ID = load_run_id()
-
-
-def resolve_model_uri() -> str:
-    local_mlmodel = os.path.join(LOCAL_MODEL_DIR, "MLmodel")
-    if os.path.exists(local_mlmodel):
-        return LOCAL_MODEL_DIR
-
-    if MODEL_URI:
-        return MODEL_URI
-
-    if os.path.exists(DEFAULT_MODEL_URI_FILE):
-        with open(DEFAULT_MODEL_URI_FILE, "r", encoding="utf-8") as f:
-            model_uri = f.read().strip()
-        if model_uri:
-            return model_uri
-
-    if os.path.exists(DEFAULT_RUN_ID_FILE):
-        with open(DEFAULT_RUN_ID_FILE, "r", encoding="utf-8") as f:
-            run_id = f.read().strip()
-        if run_id:
-            return f"runs:/{run_id}/model"
-
-    raise FileNotFoundError(
-        "No model URI found. Provide packaged_model, MODEL_URI, best_model_uri.txt, or run_id.txt."
-    )
+    with open(MODEL_PATH, "rb") as f:
+        return pickle.load(f)
 
 
 def prepare_input(payload: Union[dict, List[dict]]) -> pd.DataFrame:
@@ -205,8 +166,8 @@ def prepare_input(payload: Union[dict, List[dict]]) -> pd.DataFrame:
     return df
 
 
-mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-model = mlflow.pyfunc.load_model(resolve_model_uri())
+LABELS = load_labels()
+model = load_model()
 
 app = FastAPI(title="Inventory Risk API", version="1.0")
 
@@ -215,7 +176,6 @@ app = FastAPI(title="Inventory Risk API", version="1.0")
 def home():
     return {
         "message": "Inventory risk model is running.",
-        "model_run_id": RUN_ID,
         "endpoint": "/predict",
         "required_features": [
             "Inventory_Reconstructed",
@@ -240,7 +200,7 @@ def home():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "model_run_id": RUN_ID}
+    return {"status": "ok"}
 
 
 @app.post("/predict")
@@ -261,6 +221,7 @@ def predict(payload: Union[PredictionInput, List[PredictionInput]]):
             try:
                 pred_int = int(pred)
                 predictions_encoded.append(pred_int)
+
                 if 0 <= pred_int < len(LABELS):
                     predictions_label.append(LABELS[pred_int])
                 else:
@@ -270,7 +231,6 @@ def predict(payload: Union[PredictionInput, List[PredictionInput]]):
                 predictions_label.append(str(pred))
 
         return {
-            "model_run_id": RUN_ID,
             "predictions_encoded": predictions_encoded,
             "predictions_label": predictions_label,
         }
