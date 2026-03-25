@@ -1,7 +1,7 @@
 # IRP Stage 1 — Baseline Pipeline
 
-**Inventory Risk Predictor (IRP) | MLOps Group Project**  
-*Section 1, Group 5*
+**MLOps Group Project | Section 1, Group 5**  
+*Maria-Irina Popa · Jia Yi Rachel Lee · Thomas Christian Matenco · Enzo Jerez · Roberto Cummings*
 
 ---
 
