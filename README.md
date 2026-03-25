@@ -286,7 +286,7 @@ This project delivers a complete MLOps pipeline that includes:
 
 The deployed API is available at:
 
-https://your-app-name.onrender.com/docs
+[https://your-app-name.onrender.com/docs](https://inventory-risk-api.onrender.com/docs#/)
 
 Example endpoints:
 - /health
