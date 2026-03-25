@@ -228,7 +228,7 @@ with lc1:
     st.markdown("""
     <div class="formula-card formula-stockout">
         <div class="formula-title">🔴 Stockout Risk</div>
-        <div class="formula-rule">Inventory &lt; Demand × 1.0</div>
+        <div class="formula-rule">Inventory &lt; Demand × 1.2</div>
         <div class="formula-desc">
             Stock is insufficient to cover even one full day of forecast demand.
             <br><br>
@@ -243,7 +243,7 @@ with lc2:
     st.markdown("""
     <div class="formula-card formula-overstock">
         <div class="formula-title">🟠 Overstock Risk</div>
-        <div class="formula-rule">Inventory &gt; Demand × 1.5<br>AND Sales &lt; Demand × 0.5</div>
+        <div class="formula-rule">Inventory &gt; Demand × 4.5<br>AND Sales &lt; Demand × 0.8</div>
         <div class="formula-desc">
             Excess stock combined with very low sales velocity.
             <br><br>

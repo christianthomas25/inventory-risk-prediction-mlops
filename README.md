@@ -282,6 +282,16 @@ This project delivers a complete MLOps pipeline that includes:
 * Containerization with Docker
 * Automated CI/CD pipeline
 
+## Live API
+
+The deployed API is available at:
+
+https://your-app-name.onrender.com/docs
+
+Example endpoints:
+- /health
+- /predict
+
 ---
 
 ## Conclusion
