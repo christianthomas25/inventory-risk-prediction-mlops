@@ -1,147 +1,162 @@
-Stage 2 – Feature Engineering & Data Understanding
-Objective
+# Stage 2: Feature Engineering, Scenario Analysis & Baseline Modeling
 
-The objective of this stage is to transform raw inventory data into a structured feature set suitable for modeling, while developing a clear understanding of how business assumptions affect risk classification.
+## Overview
 
-This stage focuses on:
+Stage 2 transforms raw data into a structured, model-ready dataset and validates the pipeline through baseline models.
 
-Feature engineering
-Target label construction
-Scenario-based analysis
-Sensitivity analysis of thresholds
-Overview
+This stage bridges data preparation and modeling by integrating business logic into the ML workflow:
 
-Building on the baseline pipeline, this stage introduces:
+**Feature Engineering → Scenario Design → Target Construction → Temporal Split → Baseline Modeling**
 
-Derived features capturing inventory dynamics
-A formalized labeling strategy for risk prediction
-Multiple scenarios reflecting different business assumptions
-Analysis of how threshold choices influence class distribution
+---
 
-This stage is analytical in nature and does not involve model training or optimization.
+## 1. Feature Engineering
 
-Dataset
-Property	Value
-Source	Retail inventory dataset (Kaggle)
-Granularity	Daily per Store × Product
-Target	Inventory Risk (multiclass)
-Feature Engineering
+Key transformations are applied to capture inventory dynamics and demand behavior:
 
-New features are created to better capture operational and demand patterns:
+### Derived Features
 
-Inventory Dynamics
-Inventory_Change_Pct
-Days_of_Stock
-Demand & Sales Behavior
-Sales_Velocity
-Units_Sold_Lag1
-Forecast Reliability
-Forecast_Error
-Operational Ratios
-Coverage_Ratio
-Order_to_Inventory
+* **Lag Features**
 
-These features aim to represent:
+  * `Units_Sold_Lag1`
+* **Rolling / Trend Features**
 
-Short-term demand trends
-Inventory sustainability
-Forecast uncertainty
-Supply-demand balance
-Target Label Definition
+  * Inventory change and trends
+* **Inventory & Demand Ratios**
 
-The target variable (Risk_Label) is constructed using threshold-based rules derived from business logic.
+  * `Days_of_Stock`
+  * `Sales_Velocity`
+  * `Coverage_Ratio`
+  * `Order_to_Inventory`
+* **Forecast-Based Features**
 
-Classes
-Low Risk
-Medium Risk
-High Risk
-Core Logic
-High Risk (Stockout)
-Inventory is insufficient relative to expected demand
-Medium Risk (Overstock)
-Inventory is excessive and sales velocity is low
-Low Risk (Safe Zone)
-Inventory is balanced relative to demand
-Scenario Design
+  * `Forecast_Error`
+* **Reconstructed Inventory**
 
-Three scenarios are defined to simulate different business perspectives:
+  * `Inventory_Reconstructed` (core variable used consistently across labeling and modeling)
 
-Scenario 1 – Balanced
-Moderate thresholds
-Balanced trade-off between false positives and false negatives
-Scenario 2 – Conservative
-Stricter thresholds
-Fewer risk flags
-Higher chance of missing true risks
-Scenario 3 – Sensitive
-Looser thresholds
-More aggressive risk detection
-Higher false positive rate
-Sensitivity Analysis (Section 2.6)
+Categorical variables (e.g., Category, Region, Seasonality) are preserved for encoding.
 
-A sensitivity analysis is conducted to evaluate how threshold choices affect:
+---
 
-Class distribution
-Risk detection behavior
-Business implications
-Key Insight
-Lower thresholds → more items flagged as risk
-Higher thresholds → fewer risk alerts but increased missed risks
-Important Distinction
+## 2. Scenario Analysis (Business Logic)
 
-This analysis is:
+Three threshold configurations are evaluated to define inventory risk behavior.
 
-Not model tuning
-Not optimization
+### Scenario 1: Conservative Setting
 
-It is strictly:
+Allows a wider inventory buffer before labeling overstock.
+Reduces false overstock alerts but tolerates higher inventory levels to avoid stockouts.
 
-Exploration of how business assumptions shape the target variable
-Business Interpretation
+### Scenario 2: Stricter / More Sensitive Setting
 
-Each scenario reflects a different operational strategy:
+Detects stock imbalances earlier.
+Reflects tighter inventory control with faster reaction to demand mismatches.
 
-Conservative (Scenario 2):
-Minimizes unnecessary interventions but risks stockouts
-Sensitive (Scenario 3):
-Maximizes risk detection but may trigger excessive actions
-Balanced (Scenario 1):
-Provides a compromise between the two extremes
+### Scenario 3: Balanced Setting
 
-Key conclusion:
+Compromise between conservative and strict approaches.
+Balances stockout prevention with timely overstock detection.
 
-The “best” scenario depends on business cost trade-offs, not statistical metrics.
+Scenario comparison is performed using class distribution analysis to select a suitable configuration.
 
-Data Preparation for Modeling
+---
 
-Final outputs of this stage include:
+## 3. Target Construction
 
-Cleaned and feature-engineered dataset
-Defined target variable (Risk_Label)
-Structured feature set for modeling
-Scenario-based labeled datasets
+Two labels are created:
 
-These outputs are used directly in Stage 3 for model training and evaluation.
+* **Risk_Label_Current** → current-period classification
+* **Risk_Label** → next-period prediction target
 
-Key Outcomes
-Robust feature set capturing inventory dynamics
-Clear and interpretable labeling strategy
-Multiple business-driven scenarios
-Understanding of threshold sensitivity
-Limitations
-Labels are derived from heuristic rules, not ground truth
-Threshold selection introduces subjectivity
-Dataset remains synthetic, which may inflate separability
-Stage 2 Outcome
-Feature engineering pipeline completed
-Target variable defined and validated
-Scenario analysis performed
-Dataset ready for modeling in Stage 3
-Next Stage
+```python
+df["Risk_Label"] = df.groupby(["Store ID", "Product ID"])["Risk_Label_Current"].shift(-1)
+```
 
-Stage 3 focuses on:
+This ensures:
 
-Training multiple machine learning models
-Evaluating performance using validation metrics
-Tracking experiments using MLflow
-Selecting the best-performing model
+* Alignment with real-world decision timing
+* No data leakage from future information
+
+Rows with missing future labels are removed.
+
+---
+
+## 4. Temporal Train / Validation / Test Split
+
+Data is split chronologically:
+
+* **Train:** before first cutoff
+* **Validation:** between cutoffs
+* **Test:** after second cutoff
+
+This simulates real-world deployment and prevents information leakage across time.
+
+---
+
+## 5. Data Preparation
+
+* Missing values are imputed using **training-set medians**
+* Leakage-prone columns are removed
+* Target variables are excluded from feature inputs
+* Categorical variables are **one-hot encoded**
+* Numerical features are scaled where appropriate
+
+---
+
+## 6. Baseline Modeling
+
+Three baseline models are implemented:
+
+* **Logistic Regression** (interpretable baseline)
+* **Random Forest** (non-linear benchmark)
+* **XGBoost** (boosting-based model)
+
+### Class Imbalance Handling
+
+```python
+class_weight="balanced"
+```
+
+### Evaluation Metrics
+
+* Accuracy
+* Precision / Recall / F1-score
+* Confusion Matrix
+
+Label encoding is aligned with model outputs to ensure correct interpretation of results.
+
+---
+
+## 7. Key Design Decisions
+
+* **Inventory consistency:** `Inventory_Reconstructed` used across features, labeling, and modeling
+* **Temporal split:** prevents future data leakage
+* **Scenario-driven labeling:** integrates business logic into ML pipeline
+* **Proper label encoding:** ensures correct evaluation metrics
+
+---
+
+## 8. Outputs
+
+* Cleaned datasets: **train / validation / test**
+* Feature matrices ready for modeling
+* Scenario comparison results
+* Baseline model performance metrics
+
+---
+
+## Summary
+
+Stage 2 establishes a robust and production-aligned ML pipeline by combining:
+
+* Business-driven labeling
+* Feature engineering
+* Proper evaluation methodology
+* Baseline model validation
+
+This stage prepares the foundation for:
+
+* Experiment tracking (Stage 3)
+* Model optimization
+* Deployment and monitoring
