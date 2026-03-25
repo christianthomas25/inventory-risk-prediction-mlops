@@ -1,30 +1,42 @@
 # app.py
-
-# app.py
-# Stage 6 version:
-# - loads the locally saved best model (model.pkl)
-# - loads class labels from label_classes.json
-# - exposes /, /health, and /predict
-# - works cleanly with Docker + GitHub Actions + Render
+# The purpose of this file is to read best_model_uri.txt / run_id.txt
+# and load the trained model from MLflow
+# and define FastAPI app
+# and define input schema
+# and expose /, /health, /predict
 
 import os
 import json
-import datetime
 from typing import List, Union
 
-import joblib
+import mlflow
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_PATH = os.getenv("MODEL_PATH", os.path.join(BASE_DIR, "model.pkl"))
-LABELS_PATH = os.getenv("LABELS_PATH", os.path.join(BASE_DIR, "label_classes.json"))
-PORT = int(os.getenv("PORT", 5001))
+MLFLOW_TRACKING_URI = os.getenv(
+    "MLFLOW_TRACKING_URI",
+    f"sqlite:///{os.path.join(BASE_DIR, 'mlflow.db')}",
+)
+DEFAULT_MODEL_URI_FILE = os.getenv(
+    "MODEL_URI_FILE",
+    os.path.join(BASE_DIR, "best_model_uri.txt"),
+)
+DEFAULT_RUN_ID_FILE = os.getenv(
+    "RUN_ID_FILE",
+    os.path.join(BASE_DIR, "run_id.txt"),
+)
+MODEL_URI = os.getenv("MODEL_URI")
+
+LOCAL_MODEL_DIR = os.getenv(
+    "LOCAL_MODEL_DIR",
+    os.path.join(BASE_DIR, "packaged_model"),
+)
 
 FEATURE_COLUMNS = [
-    "Inventory Level",
+    "Inventory_Reconstructed",
     "Units Sold",
     "Units Ordered",
     "Price",
@@ -42,12 +54,15 @@ FEATURE_COLUMNS = [
     "Seasonality",
 ]
 
-NUMERICAL_FEATURES = [
-    "Inventory Level",
+INTEGER_FEATURES = [
     "Units Sold",
     "Units Ordered",
-    "Price",
     "Discount",
+]
+
+FLOAT_FEATURES = [
+    "Inventory_Reconstructed",
+    "Price",
     "Units_Sold_Lag1",
     "Inventory_Change_Pct",
     "Days_of_Stock",
@@ -66,11 +81,11 @@ CATEGORICAL_FEATURES = [
 
 
 class PredictionInput(BaseModel):
-    Inventory_Level: float
-    Units_Sold: float
-    Units_Ordered: float
+    Inventory_Reconstructed: float
+    Units_Sold: int
+    Units_Ordered: int
     Price: float
-    Discount: float
+    Discount: int
     Units_Sold_Lag1: float
     Inventory_Change_Pct: float
     Days_of_Stock: float
@@ -82,10 +97,10 @@ class PredictionInput(BaseModel):
     Region: str
     Weather_Condition: str
     Seasonality: str
-
+    
     def to_model_dict(self) -> dict:
         return {
-            "Inventory Level": self.Inventory_Level,
+            "Inventory_Reconstructed": self.Inventory_Reconstructed,
             "Units Sold": self.Units_Sold,
             "Units Ordered": self.Units_Ordered,
             "Price": self.Price,
@@ -104,20 +119,49 @@ class PredictionInput(BaseModel):
         }
 
 
-def load_labels():
-    if os.path.exists(LABELS_PATH):
-        with open(LABELS_PATH, "r") as f:
+def load_labels() -> List[str]:
+    label_path = os.path.join(BASE_DIR, "label_classes.json")
+    if os.path.exists(label_path):
+        with open(label_path, "r", encoding="utf-8") as f:
             data = json.load(f)
         return data.get("class_names", [])
-    return []
+    return ["High Risk", "Low Risk", "Medium Risk"]
 
 
-def load_model():
-    if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(
-            f"Model file not found at {MODEL_PATH}. Run train.py first."
-        )
-    return joblib.load(MODEL_PATH)
+def load_run_id() -> str:
+    if os.path.exists(DEFAULT_RUN_ID_FILE):
+        with open(DEFAULT_RUN_ID_FILE, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    return "unknown"
+
+
+LABELS = load_labels()
+RUN_ID = load_run_id()
+
+
+def resolve_model_uri() -> str:
+    local_mlmodel = os.path.join(LOCAL_MODEL_DIR, "MLmodel")
+    if os.path.exists(local_mlmodel):
+        return LOCAL_MODEL_DIR
+
+    if MODEL_URI:
+        return MODEL_URI
+
+    if os.path.exists(DEFAULT_MODEL_URI_FILE):
+        with open(DEFAULT_MODEL_URI_FILE, "r", encoding="utf-8") as f:
+            model_uri = f.read().strip()
+        if model_uri:
+            return model_uri
+
+    if os.path.exists(DEFAULT_RUN_ID_FILE):
+        with open(DEFAULT_RUN_ID_FILE, "r", encoding="utf-8") as f:
+            run_id = f.read().strip()
+        if run_id:
+            return f"runs:/{run_id}/model"
+
+    raise FileNotFoundError(
+        "No model URI found. Provide packaged_model, MODEL_URI, best_model_uri.txt, or run_id.txt."
+    )
 
 
 def prepare_input(payload: Union[dict, List[dict]]) -> pd.DataFrame:
@@ -134,40 +178,69 @@ def prepare_input(payload: Union[dict, List[dict]]) -> pd.DataFrame:
 
     df = df[FEATURE_COLUMNS].copy()
 
-    for col in NUMERICAL_FEATURES:
+    for col in INTEGER_FEATURES:
         df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    for col in FLOAT_FEATURES:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    bad_int_cols = df[INTEGER_FEATURES].columns[df[INTEGER_FEATURES].isnull().any()].tolist()
+    bad_float_cols = df[FLOAT_FEATURES].columns[df[FLOAT_FEATURES].isnull().any()].tolist()
+
+    if bad_int_cols or bad_float_cols:
+        raise ValueError(
+            "These numerical columns contain invalid or missing values: "
+            f"{bad_int_cols + bad_float_cols}"
+        )
+
+    for col in INTEGER_FEATURES:
+        df[col] = df[col].astype("int64")
+
+    for col in FLOAT_FEATURES:
+        df[col] = df[col].astype("float64")
 
     for col in CATEGORICAL_FEATURES:
         df[col] = df[col].astype("object")
 
-    if df[NUMERICAL_FEATURES].isnull().any().any():
-        bad_cols = df[NUMERICAL_FEATURES].columns[
-            df[NUMERICAL_FEATURES].isnull().any()
-        ].tolist()
-        raise ValueError(
-            f"These numerical columns contain invalid or missing values: {bad_cols}"
-        )
-
     return df
 
 
-LABELS = load_labels()
-model = load_model()
+mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+model = mlflow.pyfunc.load_model(resolve_model_uri())
 
-app = FastAPI(title="Inventory Risk Prediction API", version="1.0")
+app = FastAPI(title="Inventory Risk API", version="1.0")
 
 
 @app.get("/")
 def home():
     return {
-        "message": "Inventory risk prediction API is running.",
-        "endpoints": ["/health", "/predict"],
+        "message": "Inventory risk model is running.",
+        "model_run_id": RUN_ID,
+        "endpoint": "/predict",
+        "required_features": [
+            "Inventory_Reconstructed",
+            "Units_Sold",
+            "Units_Ordered",
+            "Price",
+            "Discount",
+            "Units_Sold_Lag1",
+            "Inventory_Change_Pct",
+            "Days_of_Stock",
+            "Sales_Velocity",
+            "Coverage_Ratio",
+            "Forecast_Error",
+            "Order_to_Inventory",
+            "Category",
+            "Region",
+            "Weather_Condition",
+            "Seasonality",
+        ],
     }
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "model_run_id": RUN_ID}
 
 
 @app.post("/predict")
@@ -175,37 +248,32 @@ def predict(payload: Union[PredictionInput, List[PredictionInput]]):
     try:
         if isinstance(payload, list):
             records = [item.to_model_dict() for item in payload]
-            original_payload = [item.model_dump() for item in payload]
         else:
             records = payload.to_model_dict()
-            original_payload = payload.model_dump()
 
         X = prepare_input(records)
         preds = model.predict(X)
 
-        encoded = [int(p) if str(p).isdigit() else str(p) for p in preds]
+        predictions_encoded = []
+        predictions_label = []
 
-        decoded = []
-        for p in preds:
+        for pred in preds:
             try:
-                decoded.append(LABELS[int(p)])
+                pred_int = int(pred)
+                predictions_encoded.append(pred_int)
+                if 0 <= pred_int < len(LABELS):
+                    predictions_label.append(LABELS[pred_int])
+                else:
+                    predictions_label.append(str(pred))
             except Exception:
-                decoded.append(str(p))
-
-        log_entry = {
-            "timestamp": datetime.datetime.now().isoformat(),
-            "input": original_payload,
-            "prediction": encoded,
-            "prediction_label": decoded,
-        }
-
-        with open(os.path.join(BASE_DIR, "prediction_logs.json"), "a") as f:
-            f.write(json.dumps(log_entry) + "\n")
+                predictions_encoded.append(str(pred))
+                predictions_label.append(str(pred))
 
         return {
-            "predictions_encoded": encoded,
-            "predictions_label": decoded,
+            "model_run_id": RUN_ID,
+            "predictions_encoded": predictions_encoded,
+            "predictions_label": predictions_label,
         }
 
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

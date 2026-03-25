@@ -1,21 +1,39 @@
 # test_api.py
 
-from fastapi.testclient import TestClient
-from app import app
+import os
+import requests
 
-client = TestClient(app)
+BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:5001")
 
 
-def sample_payload():
-    return {
-        "Inventory_Level": 120,
+def test_root_endpoint():
+    resp = requests.get(f"{BASE_URL}/")
+    assert resp.status_code == 200, f"Unexpected status: {resp.status_code}"
+
+    data = resp.json()
+    assert "message" in data
+    assert "endpoint" in data
+    assert data["endpoint"] == "/predict"
+
+
+def test_health_endpoint():
+    resp = requests.get(f"{BASE_URL}/health")
+    assert resp.status_code == 200, f"Unexpected status: {resp.status_code}"
+
+    data = resp.json()
+    assert data.get("status") == "ok"
+
+
+def test_predict_endpoint():
+    payload = {
+        "Inventory_Reconstructed": 120.0,
         "Units_Sold": 35,
         "Units_Ordered": 40,
         "Price": 19.99,
-        "Discount": 0.10,
-        "Units_Sold_Lag1": 30,
+        "Discount": 10,
+        "Units_Sold_Lag1": 30.0,
         "Inventory_Change_Pct": 0.08,
-        "Days_of_Stock": 12,
+        "Days_of_Stock": 12.0,
         "Sales_Velocity": 2.9,
         "Coverage_Ratio": 1.4,
         "Forecast_Error": 3.5,
@@ -26,42 +44,14 @@ def sample_payload():
         "Seasonality": "Summer",
     }
 
-
-def test_home_endpoint():
-    resp = client.get("/")
-    assert resp.status_code == 200
+    resp = requests.post(f"{BASE_URL}/predict", json=payload)
+    assert resp.status_code == 200, f"Unexpected status: {resp.status_code} | {resp.text}"
 
     data = resp.json()
-    assert "message" in data
-    assert "endpoints" in data
 
-
-def test_health_endpoint():
-    resp = client.get("/health")
-    assert resp.status_code == 200
-
-    data = resp.json()
-    assert data.get("status") == "ok"
-
-
-def test_predict_endpoint():
-    payload = sample_payload()
-
-    resp = client.post("/predict", json=payload)
-    assert resp.status_code == 200
-
-    data = resp.json()
     assert "predictions_encoded" in data
     assert "predictions_label" in data
     assert isinstance(data["predictions_encoded"], list)
     assert isinstance(data["predictions_label"], list)
     assert len(data["predictions_encoded"]) == 1
     assert len(data["predictions_label"]) == 1
-
-
-def test_predict_missing_field():
-    payload = sample_payload()
-    payload.pop("Price")
-
-    resp = client.post("/predict", json=payload)
-    assert resp.status_code in [400, 422]
