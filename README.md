@@ -1,277 +1,303 @@
-# Inventory Risk Prediction – End-to-End MLOps Pipeline
+# Inventory Risk Prediction – MLOps Pipeline
+
+## Overview
+
+This project implements an end-to-end MLOps pipeline for predicting inventory risk using machine learning. The pipeline covers the full lifecycle from data exploration to deployment and monitoring, ensuring reproducibility, scalability, and reliability.
+
+The system predicts inventory risk levels (e.g., High Risk, Medium Risk, Low Risk) using historical sales and operational data.
+
+---
+
+## Project Structure
+
+```text
+01-initial-notebook/        # Stage 1: Data exploration
+02-features-modelling/     # Stage 2: Feature engineering
+03-experiment-tracking/    # Stage 3: MLflow experiments
+04-deployment/             # Stage 4: FastAPI model serving
+05-monitoring/             # Stage 5: Monitoring & drift detection
+06-cicd/                   # Stage 6: Docker & CI/CD
+```
+
+---
+
+# Stage 1: Data Exploration
 
 ## Objective
 
-This project builds a complete end-to-end MLOps pipeline to predict inventory risk levels for retail products. The system is designed to simulate a production-ready machine learning workflow, from data processing to deployment, monitoring, and automation.
+Understand the dataset and identify key variables affecting inventory risk.
 
-The goal is to support better inventory decisions by classifying products into:
+## Key Tasks
 
-- Low Risk  
-- Medium Risk  
-- High Risk  
+* Loaded and inspected dataset
+* Performed summary statistics
+* Visualized distributions (boxplots, histograms)
+* Identified potential outliers and anomalies
 
----
+## Outcome
 
-## Project Overview
+* Clear understanding of data structure
+* Identified important variables such as:
 
-The pipeline follows a structured multi-stage approach:
-
-1. Feature Engineering & Data Understanding  
-2. Modeling & Experiment Tracking  
-3. Deployment (API)  
-4. Monitoring  
-5. Automation & CI/CD  
-
-Each stage reflects a real-world ML lifecycle component.
+  * Inventory Level
+  * Units Sold
+  * Demand Forecast
+  * Price and Discount
 
 ---
 
-## Problem Definition
+# Stage 2: Feature Engineering & Modelling
 
-The task is a **multiclass classification problem**:
+## Objective
 
-- Input: Daily inventory and sales features  
-- Output: Risk level for future inventory imbalance  
+Prepare features and build predictive models.
 
-Business objective:
+## Key Tasks
 
-- Reduce stockouts  
-- Avoid overstocking  
-- Improve operational efficiency  
+* Cleaned dataset and handled missing values
+* Removed leakage variables
+* Created new features:
 
----
+  * Inventory_Reconstructed
+  * Inventory_Change_Pct
+  * Days_of_Stock
+  * Sales_Velocity
+* Split data into train / validation / test sets
 
-## Pipeline Architecture
+## Models Implemented
 
-**End-to-End Flow:**
+* Logistic Regression
+* Random Forest
+* XGBoost
 
-1. Raw data → feature engineering  
-2. Feature set → model training (MLflow)  
-3. Best model → API deployment (FastAPI)  
-4. API → real-time predictions  
-5. Predictions → logging and monitoring  
-6. System → containerized and automated  
+## Techniques Used
 
----
+* One-hot encoding for categorical variables
+* Standardization for numerical variables
+* Handling class imbalance using SMOTE / SMOTENC
 
-## Stage 2 – Feature Engineering & Data Understanding
+## Evaluation Metrics
 
-### Key Contributions
+* Accuracy
+* Precision (macro)
+* Recall (macro)
+* F1-score (macro)
 
-- Creation of domain-specific features:
-  - Inventory dynamics (e.g., Days_of_Stock)  
-  - Demand behavior (Sales_Velocity)  
-  - Forecast reliability (Forecast_Error)  
+## Outcome
 
-- Target label defined using threshold-based rules  
-
-- Three business scenarios:
-  - Conservative  
-  - Balanced  
-  - Sensitive  
-
-### Sensitivity Analysis
-
-- Evaluates how thresholds impact class distribution  
-- Demonstrates that label design depends on business trade-offs  
-
-Important distinction:
-
-- This is **analysis**, not model tuning  
+* Selected best-performing model based on validation performance
 
 ---
 
-## Stage 3 – Modeling & MLflow
+# Stage 3: Experiment Tracking (MLflow)
 
-### Models Trained
+## Objective
 
-- Logistic Regression  
-- Random Forest  
-- XGBoost  
+Track experiments and compare models systematically.
 
-### Evaluation Metrics
+## Key Tasks
 
-- Accuracy  
-- Precision (macro)  
-- Recall (macro)  
-- F1-score (macro)  
+* Logged model parameters and metrics using MLflow
+* Stored artifacts:
 
-### MLflow Usage
+  * Confusion matrices
+  * Classification reports
+* Compared multiple model runs
 
-- Experiment tracking  
-- Model comparison  
-- Artifact storage  
+## Output
 
-### Outputs
+* Best model identified using MLflow runs
+* Saved:
 
-- `run_id.txt`  
-- `best_model_uri.txt`  
-- `results_df.csv`  
+  * `run_id.txt`
+  * `best_model_uri.txt`
 
-### Outcome
+## Outcome
 
-- Best model selected based on validation performance  
-- Fully reproducible training pipeline  
+* Reproducible experiment tracking
+* Transparent model selection process
 
 ---
 
-## Stage 4 – Deployment (FastAPI)
+# Stage 4: Model Deployment (FastAPI)
 
-### API Features
+## Objective
 
-- REST API for real-time predictions  
-- Input validation using Pydantic  
-- Support for batch and single predictions  
+Serve the trained model via an API.
 
-### Endpoints
+## Key Components
 
-- `/` → API info  
-- `/health` → system status  
-- `/predict` → model inference  
+* `app.py` → FastAPI application
+* `/predict` endpoint → returns predictions
+* `/health` endpoint → service status
 
-### Model Loading Strategy
+## Features
 
-- Packaged model (portable)  
-- MLflow URI fallback  
+* Input validation using Pydantic
+* Data preprocessing aligned with training pipeline
+* Support for batch and single predictions
 
-### Key Achievement
+## Testing
 
-- Model successfully exposed as a production-like service  
+* Created `test_api.py`
+* Validated API responses using pytest
 
----
+## Outcome
 
-## Stage 5 – Monitoring
-
-### Monitoring Capabilities
-
-- Prediction logging (inputs + outputs + timestamp)  
-- Simulation of production traffic  
-- Data quality checks  
-- Prediction distribution tracking  
-- Data drift detection (Evidently)  
-
-### Outputs
-
-- `prediction_logs.json`  
-- `monitoring_summary.csv`  
-- `drift_report.html`  
-
-### Purpose
-
-- Ensure model reliability post-deployment  
-- Detect anomalies and distribution shifts  
+* Fully functional prediction API
 
 ---
 
-## Stage 6 – Automation & CI/CD
+# Stage 5: Monitoring & Drift Detection
 
-### Containerization
+## Objective
 
-- Docker used to package the API  
-- Ensures environment consistency and portability  
+Monitor model performance and detect data drift.
 
-### CI/CD Pipeline
+## Key Components
 
-Implemented with GitHub Actions:
+* `simulate.py` → generates prediction data
+* `monitor.py` → basic monitoring metrics
+* `evidently_report.py` → drift detection
 
-- Install dependencies  
-- Run linting checks (flake8)  
+## Outputs
 
-### Code Quality
+* `predictions.csv` → logged predictions
+* `monitoring_report.html` → performance summary
+* `evidently_report.html` → drift analysis
 
-- `.flake8` configuration applied  
-- Non-critical warnings ignored  
+## Outcome
 
-### Key Challenge Solved
-
-- MLflow artifact paths are not portable  
-- Resolved using `packaged_model/`  
-
----
-
-## Technical Stack
-
-### Core Libraries
-
-- Python  
-- pandas, numpy  
-- scikit-learn  
-- XGBoost  
-
-### MLOps Tools
-
-- MLflow (experiment tracking)  
-- FastAPI (deployment)  
-- Docker (containerization)  
-- GitHub Actions (CI/CD)  
-- Evidently (monitoring)  
+* Ability to track model behavior over time
+* Early detection of data drift
 
 ---
 
-## How to Run the Project
+# Stage 6: Docker & CI/CD Pipeline
 
-### 1. Train Models
+## Objective
+
+Automate deployment and testing using Docker and GitHub Actions.
+
+---
+
+## Dockerization
+
+### Components
+
+* `app.py`
+* `models/model.pkl`
+* `models/label_classes.json`
+* `Dockerfile`
+
+### Build Image
+
 ```bash
-python train.py
+docker build -t inventory-risk-api ./06-cicd
 ```
 
+### Run Container
 
-### 2. Run API
-uvicorn app:app --reload --port 8000
-### 3. Simulate Traffic
-python simulate.py
-### 4. Run Monitoring
-python monitor.py
-python evidently_report.py
-### 5. Run with Docker
-docker build -f 06-cicd/Dockerfile -t inventory-api .
-docker run -p 8000:8000 inventory-api
-Key Design Decisions
+```bash
+docker run -p 5001:8000 inventory-risk-api
+```
 
-#### 1. Label Engineering vs Model Optimization
-Labels defined in Stage 2
-Model training performed in Stage 3
+### Access API
 
-This separation ensures:
+* Swagger UI: http://127.0.0.1:5001/docs
+* Health: http://127.0.0.1:5001/health
 
-Clear reasoning
-Avoidance of data leakage
-#### 2. Scenario-Based Thinking
-Multiple labeling strategies simulate business priorities
-“Best” model depends on operational cost, not just metrics
-#### 3. Portability First
-Use of packaged_model/ instead of raw MLflow artifacts
-Ensures compatibility in Docker environments
-#### 4. Observability
-Logging and monitoring integrated after deployment
-Reflects real-world production requirements
-Business Impact
+---
 
-The system enables:
+## CI/CD Pipeline (GitHub Actions)
 
-Real-time inventory risk assessment
-Better stock management decisions
-Reduced operational inefficiencies
+### Workflow Files
 
-Strategic value:
+```text
+.github/workflows/
+├── train.yml
+└── ci-cd.yml
+```
 
-Supports scalable, data-driven decision-making
-Bridges the gap between ML models and business operations
-Limitations
-Dataset is synthetic → may inflate performance
-Labels are heuristic-based, not ground truth
-Monitoring is simulated, not real-time production
-Final Outcome
+---
 
-### The project delivers a complete MLOps pipeline that is:
+### Step 1: Training (`train.yml`)
 
-Reproducible
-Modular
-Deployable
-Monitorable
-Production-ready (academic level)
-Future Improvements
-Real-time streaming data integration
-Automated retraining pipeline
-Alerting system for drift detection
-Use of real-world retail datasets
+* Train models
+* Select best model
+* Save artifacts:
+
+  * `model.pkl`
+  * `label_classes.json`
+* Upload artifacts
+
+---
+
+### Step 2: Build & Test (`ci-cd.yml`)
+
+Triggered on every push to `main`.
+
+Pipeline:
+
+```text
+Train → Download Artifacts → Build Docker → Run API → Run Tests
+```
+
+### Automated Validation
+
+* Docker image built successfully
+* API container started
+* `pytest` validates `/predict` endpoint
+
+---
+
+## Key Design Decisions
+
+### 1. Separation of Training & Deployment
+
+* MLflow used for experimentation only
+* Deployment uses local artifacts (`model.pkl`)
+
+### 2. Reproducibility
+
+* Docker ensures consistent environment
+* Same setup locally and in CI
+
+### 3. Automation
+
+* Full pipeline runs automatically on push
+* Reduces manual errors
+
+---
+
+## Final Outcome
+
+This project delivers a complete MLOps pipeline that includes:
+
+* Data exploration and feature engineering
+* Model training and evaluation
+* Experiment tracking with MLflow
+* API deployment using FastAPI
+* Monitoring and drift detection
+* Containerization with Docker
+* Automated CI/CD pipeline
+
+---
+
+## Conclusion
+
+The system is production-ready and demonstrates best practices in MLOps, including:
+
+* Reproducibility
+* Scalability
+* Automation
+* Continuous validation
+
+---
+
+## Authors
+
+* Group Project – MLOps Course
+* IRP Section 1 Group 5
+
+---
